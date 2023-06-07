@@ -5,8 +5,22 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 
 
+def minimum_image_distance(pos1: np.ndarray, pos2: np.ndarray, box: np.ndarray) -> float:
+    """ Compute minimum image distance between two points.
+    Args:
+        pos1 (np.ndarray(ndim)): Position of first point.
+        pos2 (np.ndarray(ndim)): Position of second point.
+        box (np.ndarray(ndim)): Box vectors.
+    Returns:
+        float: Minimum image distance between the two points.
+    """
+    delta = pos1 - pos2
+    delta -= np.rint(delta / box) * box
+    return np.linalg.norm(delta)
+
+
 def save_ndx(save_dir, name, idxs, len_line=80):
-    """ Save a list of indexes (1-based) to file in gmx ndx format. """
+    """Save a list of indexes (1-based) to file in gmx ndx format."""
     idxs = list(idxs)
     assert all(isinstance(idx, int) for idx in idxs), "Indexes need to be integers"
     save_name = os.path.join(save_dir, name + ".ndx")
@@ -26,8 +40,14 @@ def save_ndx(save_dir, name, idxs, len_line=80):
         fh.writelines(lines)
 
 
-def get_fe(traj: Union[list, np.ndarray], bins: int = 100, plot: bool = False, axes=None):
-    """ Computes the free energy from a trajectory. Optionally plots it.
+def get_fe(
+    traj: Union[list, np.ndarray],
+    bins: int = 100,
+    kbt: float = 1.0,
+    plot: bool = False,
+    axes: plt.Axes = None,
+):
+    """Computes the free energy from a trajectory. Optionally plots it.
     Arguments:
         traj (list or np.ndarray): trajectories, can be single or multiple.
         bins (int): number of bins for the histogram, default: 100.
@@ -39,7 +59,8 @@ def get_fe(traj: Union[list, np.ndarray], bins: int = 100, plot: bool = False, a
     """
     hist, vals = np.histogram(traj, bins=bins)
     vals = (vals[1:] + vals[:-1]) / 2
-    fe = -np.log(hist)
+    fe = np.zeros_like(hist) * np.nan
+    fe[hist != 0] -= kbt * np.log(hist[hist != 0])
     fe -= np.min(fe)
     # Plot
     if plot:
@@ -56,7 +77,7 @@ def get_fe(traj: Union[list, np.ndarray], bins: int = 100, plot: bool = False, a
 def plot_vel(
     vel: Union[list, np.ndarray], mass: float, kbt: float = 2.494, bins: int = 100, axes=None
 ):
-    """ Plot velocity distribution and compare to reference
+    """Plot velocity distribution and compare to reference
     Arguments:
         vel (list or np.ndarray): velocities, can be single or multiple trajs.
         mass (float): mass of the particle.
