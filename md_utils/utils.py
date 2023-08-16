@@ -3,6 +3,7 @@ from typing import Union
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
+import scipy.constants as consts
 
 
 def minimum_image_distance(pos1: np.ndarray, pos2: np.ndarray, box: np.ndarray) -> float:
@@ -17,6 +18,12 @@ def minimum_image_distance(pos1: np.ndarray, pos2: np.ndarray, box: np.ndarray) 
     delta = pos1 - pos2
     delta -= np.rint(delta / box) * box
     return np.linalg.norm(delta)
+
+
+def get_kbt(temp: float) -> float:
+    """ Computes kbt in kJ/mol from temperature in K. """
+    kbt_joule = temp * consts.k * consts.N_A
+    return kbt_joule / 1000
 
 
 def save_ndx(save_dir, name, idxs, len_line=80):
