@@ -2,12 +2,13 @@ import os
 from typing import Union
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from scipy.stats import norm
 import scipy.constants as consts
 
 
 def minimum_image_distance(pos1: np.ndarray, pos2: np.ndarray, box: np.ndarray) -> float:
-    """ Compute minimum image distance between two points.
+    """Compute minimum image distance between two points.
     Args:
         pos1 (np.ndarray(ndim)): Position of first point.
         pos2 (np.ndarray(ndim)): Position of second point.
@@ -21,7 +22,7 @@ def minimum_image_distance(pos1: np.ndarray, pos2: np.ndarray, box: np.ndarray) 
 
 
 def get_kbt(temp: float) -> float:
-    """ Computes kbt in kJ/mol from temperature in K. """
+    """Computes kbt in kJ/mol from temperature in K."""
     kbt_joule = temp * consts.k * consts.N_A
     return kbt_joule / 1000
 
@@ -58,6 +59,7 @@ def get_fe(
     Arguments:
         traj (list or np.ndarray): trajectories, can be single or multiple.
         bins (int): number of bins for the histogram, default: 100.
+        kbt (float): thermal energy, default 1.0.
         plot (bool): whether to plot the free energy, default: False.
         axes (matplotlib.axes.Axes): axes to plot on, default: None -> makes new plot.
     Returns:
@@ -66,8 +68,8 @@ def get_fe(
     """
     hist, vals = np.histogram(traj, bins=bins)
     vals = (vals[1:] + vals[:-1]) / 2
-    fe = np.zeros_like(hist) * np.nan
-    fe[hist != 0] -= kbt * np.log(hist[hist != 0])
+    with np.errstate(divide="ignore"):
+        fe = -kbt * np.log(hist)
     fe -= np.min(fe)
     # Plot
     if plot:
@@ -79,6 +81,48 @@ def get_fe(
         axes.set_ylim(-0.4, 4)
         plt.show()
     return np.stack([vals, fe], axis=0)
+
+
+def plot_fe_convergence(
+    traj: np.ndarray,
+    bins: int = 100,
+    kbt: float = 1.0,
+    n_fes: int = 10,
+    label: str = r"$n_{\mathrm{data}}$",
+    factor: float = 1.0,
+    axes: plt.Axes = None,
+):
+    """Computes the free energy from a trajectory, using range(n_fes)/n_fes * len(data)
+    data points. This helps to check if the free energy is converged.
+    Arguments:
+        traj (list or np.ndarray): trajectories, can be single or multiple.
+        bins (int): number of bins for the histogram, default: 100.
+        kbt (float): thermal energy, default 1.0.
+        n_fes (int): number of free energies to plot.
+        axes (matplotlib.axes.Axes): axes to plot on, default: None -> makes new plot.
+        label (str): Label for colormap, default n_data
+        factor (float): Conversion factor for colorbar numbers, could be time step
+            default colorbar numbering are number of steps
+    Returns:
+        axes
+    """
+    if not isinstance(traj, np.ndarray):
+        raise TypeError
+    traj = traj.flatten()
+    if axes is None:
+        _fig, axes = plt.subplots(1, 1)
+    len_chunk = int(np.ceil(len(traj) / n_fes))
+    cm_base = plt.cm.nipy_spectral
+    norm = plt.Normalize(vmin=0, vmax=len(traj) * factor)
+    sm = mpl.cm.ScalarMappable(cmap=cm_base, norm=norm)
+    cm = lambda x: sm.to_rgba(x)
+
+    for i in range(1, n_fes + 1):
+        fe = get_fe(traj[: i * len_chunk], bins=bins, kbt=kbt)
+        axes.plot(*fe, color=cm(i * len_chunk * factor))
+    cb = plt.colorbar(sm, ax=axes, label=label)
+    cb.formatter.set_powerlimits((0, 0))
+    return axes
 
 
 def plot_vel(
