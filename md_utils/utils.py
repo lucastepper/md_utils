@@ -1,5 +1,6 @@
 import os
-from typing import Union
+from pathlib import Path
+from typing import Optional, Union
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -147,3 +148,52 @@ def plot_vel(
     axes.plot(values, hist, label="histogram")
     axes.plot(values, norm.pdf(values, loc=0.0, scale=np.sqrt(kbt / mass)), label="ref")
     return axes
+
+
+import numpy as np
+import h5py
+from typing import Optional, Union
+
+
+def get_fe_from_h5(
+    file: Union[str, Path],
+    dset_name: str,
+    bins: int = 100,
+    kbt: float = 1.0,
+    chunk_size: Optional[int] = None,
+) -> np.ndarray:
+    """Compute the free energy from a 1d trajectory in a  dataset in a h5py file.
+    Never load more than chunk_size data at a ttime
+    Arguments:
+        file (str or Path): Path to the h5py file.
+        dset_name (str): Name of the dataset to load traj from.
+        bins (int): number of bins for the histogram, default: 100.
+        kbt (float): thermal energy, default 1.0.
+        chunk_size (int): Maximum number of data points to load at a time.
+            default: None -> load all data at once.
+    Returns:
+        fe (np.ndarray[2, nbins - 1]): free energy evaluated at the bin centers
+            stacked with the bin centers [bins, fe].
+    """
+    with h5py.File(file, "r") as fh:
+        if chunk_size is None:
+            chunk_size = len(fh[dset_name])
+        n_chunks = int(np.ceil((len(fh[dset_name]) / chunk_size)))
+        idxs_chunks = np.linspace(0, len(fh[dset_name]), n_chunks + 1, dtype=int)
+        # Iterate over chunks to find min and max
+        traj_min, traj_max = np.inf, -np.inf
+        for idx_1, idx_2 in zip(idxs_chunks[:-1], idxs_chunks[1:]):
+            chunk = fh[dset_name][idx_1:idx_2]
+            traj_min = min(traj_min, np.min(chunk))
+            traj_max = max(traj_max, np.max(chunk))
+        # Compute histogram by iterating over chunks
+        hist_sum = np.zeros(bins)
+        for idx_1, idx_2 in zip(idxs_chunks[:-1], idxs_chunks[1:]):
+            chunk = fh[dset_name][idx_1:idx_2]
+            hist, values = np.histogram(chunk, bins=bins, range=(traj_min, traj_max))
+            hist_sum += hist
+    values = (values[1:] + values[:-1]) / 2
+    with np.errstate(divide="ignore"):
+        fe = -kbt * np.log(hist_sum)
+    fe -= np.min(fe)
+    return np.stack([values, fe], axis=0)
