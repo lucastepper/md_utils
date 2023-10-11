@@ -161,6 +161,7 @@ def get_fe_from_h5(
     bins: int = 100,
     kbt: float = 1.0,
     chunk_size: Optional[int] = None,
+    frames_equil: int = 0,
 ) -> np.ndarray:
     """Compute the free energy from a 1d trajectory in a  dataset in a h5py file.
     Never load more than chunk_size data at a ttime
@@ -171,6 +172,7 @@ def get_fe_from_h5(
         kbt (float): thermal energy, default 1.0.
         chunk_size (int): Maximum number of data points to load at a time.
             default: None -> load all data at once.
+        frames_equil (int): Number of frames to discard at the beginning of the trajectory.
     Returns:
         fe (np.ndarray[2, nbins - 1]): free energy evaluated at the bin centers
             stacked with the bin centers [bins, fe].
@@ -179,7 +181,7 @@ def get_fe_from_h5(
         if chunk_size is None:
             chunk_size = len(fh[dset_name])
         n_chunks = int(np.ceil((len(fh[dset_name]) / chunk_size)))
-        idxs_chunks = np.linspace(0, len(fh[dset_name]), n_chunks + 1, dtype=int)
+        idxs_chunks = np.linspace(frames_equil, len(fh[dset_name]), n_chunks + 1, dtype=int)
         # Iterate over chunks to find min and max
         traj_min, traj_max = np.inf, -np.inf
         for idx_1, idx_2 in zip(idxs_chunks[:-1], idxs_chunks[1:]):
