@@ -8,6 +8,11 @@ from .utils import (
     plot_vel,
     get_kbt,
     get_fe_from_h5,
+    get_traj_range,
+    clean_fe,
+    get_mass,
+    get_conditional_mass,
+    plot_cond_mass,
 )
 
 __all__ = [
@@ -21,4 +26,9 @@ __all__ = [
     "plot_vel",
     "get_kbt",
     "get_fe_from_h5",
+    "get_traj_range",
+    "clean_fe",
+    "get_mass",
+    "get_conditional_mass",
+    "plot_cond_mass",
 ]
