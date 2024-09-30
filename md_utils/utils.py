@@ -356,6 +356,10 @@ def plot_cond_mass(
     dt: float,
     kbt: float,
     width: float,
+    vels: bool = False,
+    axes: Optional[plt.Axes] = None,
+    kwargs_hist: Optional[dict] = {},
+    kwargs_ref: Optional[dict] = {},
 ):
     """Compute the conditional mass via conditional mean vsqrd and compare to expectation
     Arguments
@@ -366,12 +370,21 @@ def plot_cond_mass(
         dt: time step for gradient of trajs, uses central differences
         kbt: thermal energy
         width: width of bons for conitional means
+        vels: if given, computes the masses from these velocities and not the gradient of trajs
+            needs to have the same shape as trajs
+        axes: if given, plots onto this axes. needs to have the same shape as cond_mass_ref. 
+            if not given, makes new fig, axes and returns them
+        kwargs_hist: passed to plt.plot for histogram
+        kwargs_ref: passed to plt.plot for reference
     Returns
         fig, axes
     """
-    fig, axes = plt.subplots(1, len(bins), figsize=(20, 5), sharey=True)
-    fig.subplots_adjust(wspace=0)
-    vels = [np.gradient(traj, dt) for traj in trajs]
+    fig = None
+    if axes is None:
+        fig, axes = plt.subplots(1, len(bins), figsize=(20, 5), sharey=True)
+        fig.subplots_adjust(wspace=0)
+    if vels is None:
+        vels = [np.gradient(traj, dt) for traj in trajs]
     count_by_bin = []
     cond_masses_calc = []
     if not isinstance(width, list):
@@ -388,8 +401,14 @@ def plot_cond_mass(
             vels_masked.append(vel[mask])
         cond_masses_calc.append(kbt / (sum_vsqrd / count_vsqrd))
         count_by_bin.append(count_vsqrd)
-        hist, vals, _ = axes[i].hist(np.concatenate(vels_masked), density=True, bins=100)
-        axes[i].plot(vals, norm.pdf(vals, scale=np.sqrt(kbt / cond_mass_ref[i])))
+        kwargs_hist = {"bins": 100} | kwargs_hist
+        hist, vals = np.histogram(
+            np.concatenate(vels_masked), bins=kwargs_hist.get("bins", None), density=True
+        )
+        vals = 0.5 * (vals[1:] + vals[:-1])
+        kwargs_hist.pop("bins")
+        axes[i].plot(vals, hist, **kwargs_hist)
+        axes[i].plot(vals, norm.pdf(vals, scale=np.sqrt(kbt / cond_mass_ref[i])), **kwargs_ref)
         axes[i].set_title(f"x={bins[i]:.2f}")
     print(f"Num per bin: " + ", ".join(f"{n:.2e}" for n in count_by_bin))
     print(f"Ref  masses: " + ", ".join(f"{m:.2e}" for m in cond_mass_ref))
