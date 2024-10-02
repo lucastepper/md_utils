@@ -356,7 +356,7 @@ def plot_cond_mass(
     dt: float,
     kbt: float,
     width: float,
-    vels: bool = False,
+    vels: Optional[Union[np.ndarray, list[np.ndarray]]] = None,
     axes: Optional[plt.Axes] = None,
     kwargs_hist: Optional[dict] = {},
     kwargs_ref: Optional[dict] = {},
@@ -372,7 +372,7 @@ def plot_cond_mass(
         width: width of bons for conitional means
         vels: if given, computes the masses from these velocities and not the gradient of trajs
             needs to have the same shape as trajs
-        axes: if given, plots onto this axes. needs to have the same shape as cond_mass_ref. 
+        axes: if given, plots onto this axes. needs to have the same shape as cond_mass_ref.
             if not given, makes new fig, axes and returns them
         kwargs_hist: passed to plt.plot for histogram
         kwargs_ref: passed to plt.plot for reference
@@ -383,8 +383,16 @@ def plot_cond_mass(
     if axes is None:
         fig, axes = plt.subplots(1, len(bins), figsize=(20, 5), sharey=True)
         fig.subplots_adjust(wspace=0)
+    if isinstance(trajs, np.ndarray) and trajs.ndim == 1:
+        trajs = trajs[None, :]
+    elif not isinstance(trajs, list):
+        trajs = [trajs]
     if vels is None:
         vels = [np.gradient(traj, dt) for traj in trajs]
+    elif isinstance(vels, np.ndarray) and vels.ndim == 1:
+        vels = vels[None, :]
+    elif not isinstance(vels, list):
+        vels = [vels]
     count_by_bin = []
     cond_masses_calc = []
     if not isinstance(width, list):
