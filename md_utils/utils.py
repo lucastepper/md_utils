@@ -124,7 +124,11 @@ def get_mass(trajs: Union[np.ndarray, list], dt: float, kbt: float):
 
 
 def get_conditional_mass(
-    trajs: Union[np.ndarray, list], dt: float, kbt: float, intervals: np.ndarray
+    trajs: Union[np.ndarray, list],
+    dt: float,
+    kbt: float,
+    intervals: np.ndarray,
+    vels: Optional[Union[np.ndarray, list[np.ndarray]]] = None,
 ):
     """Compute the conditional mass for a given trajectory using the equipartition theorem
     <v^2>_x = kbt / m. Return one mass for each region between intervals[i] and intervals[i + 1],
@@ -136,19 +140,23 @@ def get_conditional_mass(
         kbt: thermal energy
         intervals: borders of regions in which to compute the mass.
             Assumes that intervals are ordered
+        vels: velocities of the trajectory. If given, computes conditional expectation of those.
     Returns:
         conditional mass. Entries for empty bins are nans
     """
-    trajs = to_list_ndarrays(trajs)
-    vel_squared = [(np.diff(x) / dt) ** 2 for x in trajs]
+    if vels is not None:
+        vel_squared = [v**2 for v in vels]
+    else:
+        trajs = to_list_ndarrays(trajs)
+        vel_squared = [(np.diff(x) / dt) ** 2 for x in trajs]
     sum_vsqrds = np.zeros(len(intervals) - 1)
     count_vsqrds = np.zeros(len(intervals) - 1)
     # iter through bins
     for ibin, (start, end) in enumerate(zip(intervals[:-1], intervals[1:])):
         for i, trj in enumerate(trajs):
             mask = (trj >= start) & (trj < end)
-            sum_vsqrds[ibin] += np.sum(vel_squared[i][mask[:-1]])
-            count_vsqrds[ibin] += np.sum(mask[:-1])
+            sum_vsqrds[ibin] += np.sum(vel_squared[i][mask[: len(vel_squared[i])]])
+            count_vsqrds[ibin] += np.sum(mask[: len(vel_squared[i])])
     with np.errstate(divide="ignore", invalid="ignore"):
         mean_vsqrd = sum_vsqrds / count_vsqrds
         return kbt / mean_vsqrd
