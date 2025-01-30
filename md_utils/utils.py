@@ -320,7 +320,7 @@ def plot_histograms(
     traj: np.ndarray,
     dt: float,
     mass: float,
-    kbt: float = 2.494,
+    kbt: float,
     kharm: Optional[float] = None,
     fe: Optional[np.ndarray] = None,
     axes=None,
@@ -334,26 +334,32 @@ def plot_histograms(
         mass (float): mass of the particle.
         kbt (float): kbt, default: 2.494 kJ/mol.
         kharm (float): harmonic constant, default: None.
-        fe (np.ndarray): free energy to plot, default: None.
+        fe (np.ndarray): free energy to plot with the same units as kbt, default: None.
         axes (matplotlib.axes.Axes): axes to plot on, default: None -> makes new plot.
     """
     if axes is None:
         _fig, axes = plt.subplots(1, 2)
     # define functions to plot the ref, called given the hist bins, returns the ref disttribution
-    ref_dist_funcs = [lambda x: norm.pdf(x, loc=0.0, scale=np.sqrt(kbt / mass))]
+    ref_dist_funcs = []
+    # add reference for position, if available
     if kharm is not None:
-        ref_dist_funcs.append(lambda x: norm.pdf(x, loc=0.0, scale=np.sqrt(kharm / mass)))
+        ref_dist_funcs.append(lambda x: norm.pdf(x, loc=0.0, scale=np.sqrt(kbt / kharm)))
     elif fe is not None:
-        ref_dist = np.exp(-fe[1] / np.trapz(fe[1], fe[0]))
+        ref_dist = np.exp(-fe[1] / kbt)
+        ref_dist /= np.trapz(ref_dist, fe[0])
         ref_dist_funcs.append(lambda x: np.interp(x, fe[0], ref_dist))
     else:
         ref_dist_funcs.append(lambda x: np.nan * np.ones_like(x))
+    # add ref for velocity
+    ref_dist_funcs.append(lambda x: norm.pdf(x, loc=0.0, scale=np.sqrt(kbt / mass)))
+    ttls = ["pos", "vel"]
     # plot the histogram with the reference distributions
-    for data, ref_dist_func, ax in zip([traj, np.diff(traj) / dt], ref_dist_funcs, axes):
-        hist, values = np.histogram(traj, bins=200, density=True)
+    for data, ref_dist_func, ax, tt in zip([traj, np.diff(traj) / dt], ref_dist_funcs, axes, ttls):
+        hist, values = np.histogram(data, bins=200, density=True)
         values = (values[1:] + values[:-1]) / 2
         ax.plot(values, hist, label="histogram")
         ax.plot(values, ref_dist_func(values), label="ref")
+        ax.set_title(tt)
     return axes
 
 

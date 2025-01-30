@@ -13,6 +13,8 @@ from .utils import (
     get_mass,
     get_conditional_mass,
     plot_cond_mass,
+    plot_histograms,
+    to_list_ndarrays,
 )
 
 __all__ = [
@@ -31,4 +33,6 @@ __all__ = [
     "get_mass",
     "get_conditional_mass",
     "plot_cond_mass",
+    "plot_histograms",
+    "to_list_ndarrays",
 ]
